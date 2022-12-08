@@ -33,19 +33,22 @@ pub fn sum_scan_ssm(vec: Vec<i32>) -> Vec<i32> {
 }
 
 #[cfg(test)]
-fn sum_scan_ssm_with_tx(vec: Vec<i32>) -> TensorResult<i32> {
+fn scan_ssm_with_tx<F>(vec: Vec<i32>, binop: F) -> TensorResult<i32>
+where
+    F: Fn(&i32, i32) -> i32 + Clone,
+{
     let tile_size = if vec.len() < 32 { 4 } else { 32 };
 
     // scan
     let tiles = build_vector(vec)
         .chunk(tile_size as usize)?
-        .scan(|x, y| x + y, Some(2))?;
+        .scan(&binop, Some(2))?;
 
     // scan
     let sums = tiles
         .clone()
         .last(Some(2))?
-        .prescan(0, |x, y| x + y, None)?
+        .prescan(0, binop, None)?
         .drop_last(None)?;
 
     // map
@@ -110,14 +113,14 @@ mod tests {
     fn test_scan_ssm_with_tx() {
         assert_eq!(
             (1..=8).into_iter().scan_(|x, y| x + y).collect::<Vec<_>>(),
-            sum_scan_ssm_with_tx((1..=8).collect())
+            scan_ssm_with_tx((1..=8).collect(), |x, y| x + y)
                 .unwrap()
                 .to_vec()
                 .unwrap(),
         );
         assert_eq!(
             (1..=64).into_iter().scan_(|x, y| x + y).collect::<Vec<_>>(),
-            sum_scan_ssm_with_tx((1..=64).collect())
+            scan_ssm_with_tx((1..=64).collect(), |x, y| x + y)
                 .unwrap()
                 .to_vec()
                 .unwrap(),
