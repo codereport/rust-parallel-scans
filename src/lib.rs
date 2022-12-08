@@ -1,5 +1,10 @@
+#![feature(int_roundings)]
+#![feature(int_log)]
+
 #[cfg(test)]
 use iterx::Iterx;
+#[cfg(test)]
+use rust_tx::{build_vector, TensorIntOps, TensorOps, TensorResult};
 
 // SST = scan scan transform
 // (not really parallel)
@@ -27,13 +32,25 @@ pub fn sum_scan_sst(vec: Vec<i32>) -> Vec<i32> {
         .collect()
 }
 
-// fn sum_scan_sst_with_tx(vec: Vec<i32>) -> Vec<i32> {
-//     let tile_size = 32;
+#[cfg(test)]
+fn sum_scan_sst_with_tx(vec: Vec<i32>) -> TensorResult<i32> {
+    let tile_size: i32 = if vec.len() < 32 { 4 } else { 32 };
 
-//     let tiles = vec.into_tx().windows_ldld_dldl(tile_size).scan_(Add); // scan
-//     let sums = tiles.last().prescan(0, Add).drop(-1); // scan
-//     tiles.add(sums) // transform
-// }
+    // scan
+    let tiles = build_vector(vec)
+        .chunk(tile_size as usize)?
+        .scan(|x, y| x + y, Some(2))?;
+
+    // scan
+    let sums = tiles
+        .clone()
+        .last(Some(2))?
+        .prescan(0, |x, y| x + y, None)?
+        .drop_last(None)?;
+
+    // transform
+    Ok(tiles.plus(sums)?.flatten())
+}
 
 // is something like this even possible / useful?
 // fn sum_scan_SST_ONE_CHAIN(vec: Vec<i32>) -> Vec<i32> {
@@ -86,6 +103,24 @@ mod tests {
         assert_equal(
             (1..=64).into_iter().scan_(|x, y| x + y),
             sum_scan_sst((1..=64).collect()),
+        );
+    }
+
+    #[test]
+    fn test_scan_sst_with_tx() {
+        assert_eq!(
+            (1..=8).into_iter().scan_(|x, y| x + y).collect::<Vec<_>>(),
+            sum_scan_sst_with_tx((1..=8).collect())
+                .unwrap()
+                .to_vec()
+                .unwrap(),
+        );
+        assert_eq!(
+            (1..=64).into_iter().scan_(|x, y| x + y).collect::<Vec<_>>(),
+            sum_scan_sst_with_tx((1..=64).collect())
+                .unwrap()
+                .to_vec()
+                .unwrap(),
         );
     }
 

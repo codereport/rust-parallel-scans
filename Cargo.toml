@@ -8,3 +8,4 @@ edition = "2021"
 [dependencies]
 itertools = "0.10.5"
 iterx = "0.0.4"
+rust-tx = { path = "../rust-tx" }
