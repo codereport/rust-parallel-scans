@@ -6,10 +6,10 @@ use iterx::Iterx;
 #[cfg(test)]
 use rust_tx::{build_vector, TensorIntOps, TensorOps, TensorResult};
 
-// SST = scan scan transform
+// ssm = scan scan transform
 // (not really parallel)
 #[cfg(test)]
-pub fn sum_scan_sst(vec: Vec<i32>) -> Vec<i32> {
+pub fn sum_scan_ssm(vec: Vec<i32>) -> Vec<i32> {
     let tile_size = if vec.len() < 32 { 4 } else { 32 };
 
     // scan
@@ -25,7 +25,7 @@ pub fn sum_scan_sst(vec: Vec<i32>) -> Vec<i32> {
         .prescan(0, |x, y| x + y)
         .drop_last();
 
-    // transform
+    // map
     tiles
         .zip_map(sums, |tile, sum| tile.map(move |x| x + sum))
         .flatten()
@@ -33,8 +33,8 @@ pub fn sum_scan_sst(vec: Vec<i32>) -> Vec<i32> {
 }
 
 #[cfg(test)]
-fn sum_scan_sst_with_tx(vec: Vec<i32>) -> TensorResult<i32> {
-    let tile_size: i32 = if vec.len() < 32 { 4 } else { 32 };
+fn sum_scan_ssm_with_tx(vec: Vec<i32>) -> TensorResult<i32> {
+    let tile_size = if vec.len() < 32 { 4 } else { 32 };
 
     // scan
     let tiles = build_vector(vec)
@@ -48,12 +48,12 @@ fn sum_scan_sst_with_tx(vec: Vec<i32>) -> TensorResult<i32> {
         .prescan(0, |x, y| x + y, None)?
         .drop_last(None)?;
 
-    // transform
+    // map
     Ok(tiles.plus(sums)?.flatten())
 }
 
 // is something like this even possible / useful?
-// fn sum_scan_SST_ONE_CHAIN(vec: Vec<i32>) -> Vec<i32> {
+// fn sum_scan_ssm_ONE_CHAIN(vec: Vec<i32>) -> Vec<i32> {
 //     let tile_size = 32;
 
 //     let tiles = vec
@@ -79,7 +79,7 @@ pub fn sum_scan_rss(vec: Vec<i32>) -> Vec<i32> {
     // scan
     let sums = tile_sums.clone().prescan(0, |x, y| x + y).drop_last();
 
-    // transform
+    // map
     vec.chunks(tile_size)
         .zip_map(sums, |tile, sum| {
             tile.iter().copied().prescan(sum, |x, y| x + y).skip(1)
@@ -95,29 +95,29 @@ mod tests {
     use itertools::assert_equal;
 
     #[test]
-    fn test_scan_sst() {
+    fn test_scan_ssm() {
         assert_equal(
             (1..=8).into_iter().scan_(|x, y| x + y),
-            sum_scan_sst((1..=8).collect()),
+            sum_scan_ssm((1..=8).collect()),
         );
         assert_equal(
             (1..=64).into_iter().scan_(|x, y| x + y),
-            sum_scan_sst((1..=64).collect()),
+            sum_scan_ssm((1..=64).collect()),
         );
     }
 
     #[test]
-    fn test_scan_sst_with_tx() {
+    fn test_scan_ssm_with_tx() {
         assert_eq!(
             (1..=8).into_iter().scan_(|x, y| x + y).collect::<Vec<_>>(),
-            sum_scan_sst_with_tx((1..=8).collect())
+            sum_scan_ssm_with_tx((1..=8).collect())
                 .unwrap()
                 .to_vec()
                 .unwrap(),
         );
         assert_eq!(
             (1..=64).into_iter().scan_(|x, y| x + y).collect::<Vec<_>>(),
-            sum_scan_sst_with_tx((1..=64).collect())
+            sum_scan_ssm_with_tx((1..=64).collect())
                 .unwrap()
                 .to_vec()
                 .unwrap(),
