@@ -1,7 +1,5 @@
 #[cfg(test)]
 use iterx::Iterx;
-// #[cfg(test)]
-// use std::ops::Add;
 
 // SST = scan scan transform
 // (not really parallel)
