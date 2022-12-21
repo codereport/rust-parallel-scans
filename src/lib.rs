@@ -52,7 +52,7 @@ where
         .drop_last(None)?;
 
     // map
-    Ok(tiles.plus(sums)?.flatten())
+    tiles.plus(sums)?.flatten_ok()
 }
 
 // is something like this even possible / useful?
@@ -103,11 +103,10 @@ where
     let sums = tile_sums.prescan(0, &binop, None)?.drop_last(None)?; // scan
 
     // scan
-    Ok(sums
-        .append(vec_tx.chunk(tile_size)?)?
+    sums.append(vec_tx.chunk(tile_size)?)?
         .scan(binop, Some(2))?
         .drop_first(Some(2))?
-        .flatten())
+        .flatten_ok()
 }
 
 #[cfg(test)]
