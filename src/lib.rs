@@ -35,7 +35,7 @@ pub fn sum_scan_ssm(vec: Vec<i32>) -> Vec<i32> {
 #[cfg(test)]
 fn scan_ssm_with_tx<F>(vec: Vec<i32>, binop: F) -> TensorResult<i32>
 where
-    F: Fn(&i32, i32) -> i32 + Clone,
+    F: Fn(i32, i32) -> i32 + Clone,
 {
     let tile_size = if vec.len() < 32 { 4 } else { 32 };
 
@@ -82,7 +82,7 @@ pub fn sum_scan_rss(vec: Vec<i32>) -> Vec<i32> {
     // scan
     let sums = tile_sums.clone().prescan(0, |x, y| x + y).drop_last();
 
-    // preScan
+    // scan
     vec.chunks(tile_size)
         .zip_map(sums, |tile, sum| {
             tile.iter().copied().prescan(sum, |x, y| x + y).skip(1)
@@ -92,23 +92,23 @@ pub fn sum_scan_rss(vec: Vec<i32>) -> Vec<i32> {
 }
 
 #[cfg(test)]
-fn sum_scan_rss_with_tx(vec: Vec<i32>) -> TensorResult<i32> {
+fn scan_rss_with_tx<F>(vec: Vec<i32>, binop: F) -> TensorResult<i32>
+where
+    F: Fn(i32, i32) -> i32 + Clone,
+{
     let tile_size = if vec.len() < 32 { 4 } else { 32 };
     let vec_tx = build_vector(vec);
 
     // reduce
-    let tile_sums = vec_tx
-        .clone()
-        .chunk(tile_size)?
-        .reduce(|x, y| x + y, Some(2))?;
+    let tile_sums = vec_tx.clone().chunk(tile_size)?.reduce(&binop, Some(2))?;
 
     // scan
-    let sums = tile_sums.prescan(0, |x, y| x + y, None)?.drop_last(None)?;
+    let sums = tile_sums.prescan(0, &binop, None)?.drop_last(None)?;
 
-    // preScan
+    // scan
     Ok(sums
         .append(vec_tx.chunk(tile_size)?)?
-        .scan(|x, y| x + y, Some(2))?
+        .scan(binop, Some(2))?
         .drop_first(Some(2))?
         .flatten())
 }
@@ -165,14 +165,14 @@ mod tests {
     fn test_sum_scan_rss_with_tx() {
         assert_eq!(
             (1..=8).into_iter().scan_(|x, y| x + y).collect::<Vec<_>>(),
-            sum_scan_rss_with_tx((1..=8).collect())
+            scan_rss_with_tx((1..=8).collect(), |x, y| x + y)
                 .unwrap()
                 .to_vec()
                 .unwrap(),
         );
         assert_equal(
             (1..=64).into_iter().scan_(|x, y| x + y),
-            sum_scan_rss_with_tx((1..=64).collect())
+            scan_rss_with_tx((1..=64).collect(), |x, y| x + y)
                 .unwrap()
                 .to_vec()
                 .unwrap(),
