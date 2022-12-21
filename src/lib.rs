@@ -82,13 +82,35 @@ pub fn sum_scan_rss(vec: Vec<i32>) -> Vec<i32> {
     // scan
     let sums = tile_sums.clone().prescan(0, |x, y| x + y).drop_last();
 
-    // map
+    // preScan
     vec.chunks(tile_size)
         .zip_map(sums, |tile, sum| {
             tile.iter().copied().prescan(sum, |x, y| x + y).skip(1)
         })
         .flatten()
         .collect()
+}
+
+#[cfg(test)]
+fn sum_scan_rss_with_tx(vec: Vec<i32>) -> TensorResult<i32> {
+    let tile_size = if vec.len() < 32 { 4 } else { 32 };
+    let vec_tx = build_vector(vec);
+
+    // reduce
+    let tile_sums = vec_tx
+        .clone()
+        .chunk(tile_size)?
+        .reduce(|x, y| x + y, Some(2))?;
+
+    // scan
+    let sums = tile_sums.prescan(0, |x, y| x + y, None)?.drop_last(None)?;
+
+    // preScan
+    Ok(sums
+        .append(vec_tx.chunk(tile_size)?)?
+        .scan(|x, y| x + y, Some(2))?
+        .drop_first(Some(2))?
+        .flatten())
 }
 
 #[cfg(test)]
@@ -128,7 +150,7 @@ mod tests {
     }
 
     #[test]
-    fn test_scan_rss() {
+    fn test_sum_scan_rss() {
         assert_eq!(
             (1..=8).into_iter().scan_(|x, y| x + y).collect::<Vec<_>>(),
             sum_scan_rss((1..=8).collect()),
@@ -136,6 +158,24 @@ mod tests {
         assert_equal(
             (1..=64).into_iter().scan_(|x, y| x + y),
             sum_scan_rss((1..=64).collect()),
+        );
+    }
+
+    #[test]
+    fn test_sum_scan_rss_with_tx() {
+        assert_eq!(
+            (1..=8).into_iter().scan_(|x, y| x + y).collect::<Vec<_>>(),
+            sum_scan_rss_with_tx((1..=8).collect())
+                .unwrap()
+                .to_vec()
+                .unwrap(),
+        );
+        assert_equal(
+            (1..=64).into_iter().scan_(|x, y| x + y),
+            sum_scan_rss_with_tx((1..=64).collect())
+                .unwrap()
+                .to_vec()
+                .unwrap(),
         );
     }
 }
