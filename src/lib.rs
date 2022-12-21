@@ -99,11 +99,8 @@ where
     let tile_size = if vec.len() < 32 { 4 } else { 32 };
     let vec_tx = build_vector(vec);
 
-    // reduce
-    let tile_sums = vec_tx.clone().chunk(tile_size)?.reduce(&binop, Some(2))?;
-
-    // scan
-    let sums = tile_sums.prescan(0, &binop, None)?.drop_last(None)?;
+    let tile_sums = vec_tx.clone().chunk(tile_size)?.reduce(&binop, Some(2))?; // reduce
+    let sums = tile_sums.prescan(0, &binop, None)?.drop_last(None)?; // scan
 
     // scan
     Ok(sums
