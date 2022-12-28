@@ -1,5 +1,4 @@
 #![feature(int_roundings)]
-#![feature(int_log)]
 
 #[cfg(test)]
 use iterx::Iterx;
